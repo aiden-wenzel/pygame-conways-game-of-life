@@ -1,10 +1,13 @@
 """The main driver file of this program."""
 
 import pygame as pg
+import pygame_gui
 import colony
 import plotter
 import button
 
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1088
 
 class Game:
     def __init__(self, resolution: tuple, frame_rate: int) -> None:
@@ -17,6 +20,7 @@ class Game:
         self.colony = colony.Colony(resolution[0], resolution[1])
         self.selected_cell = None
         self.plot = plotter.Plotter()
+        self.manager = pygame_gui.UIManager(resolution)
 
     def draw_colony(self) -> None:
         for row in range(self.colony.rows):
@@ -33,8 +37,8 @@ class Game:
                         self.screen,
                         color,
                         pg.Rect(self.colony.get_cell(row, column).calculate_screen_coordinates(),
-                        (16, 16))
-                )
+                                (16, 16))
+                        )
 
     def _draw_button(self, left_corner: tuple, dimensions: tuple, color: str) -> None:
         button_to_draw = pg.Rect(left_corner, dimensions)
@@ -45,25 +49,45 @@ class Game:
         in_gui = True
         in_game = False
 
-        start_button = button.Button((0,0), (50, 25), "green")
-        restart_button = button.Button((1280-50, 0), (50, 25), "red")
-
-        self.screen.fill("purple")
+        print(pg.display.get_window_size()[0])
+        button_width = 100
+        button_height = 50
+        button_size = (button_width, button_height)
+        restart_button_pos = (pg.display.get_window_size()[0]-button_width, 0)
+        start_button_gui = pygame_gui.elements.UIButton(relative_rect=pg.Rect((0,0), button_size),
+                                                        text='Start',
+                                                        manager=self.manager)
+        restart_button_gui = pygame_gui.elements.UIButton(relative_rect=pg.Rect(restart_button_pos, button_size),
+                                                        text='Restart',
+                                                        manager=self.manager)
 
         while self.running:
+
+            time_delta = self.clock.tick(60)/1000.0
 
             # Exit the loop if the the player quits.
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self.running = False
 
+                if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                    if event.ui_element == start_button_gui:
+                        in_gui = False
+                        in_game = True
+                    elif event.ui_element == restart_button_gui:
+                        self.colony.wipe_colony()
+                        in_gui = True
+                        in_game = False
+
+                self.manager.process_events(event)
+
+            self.manager.update(time_delta)
+
             # Entry point to select cells
             if in_gui:
 
                 # Render buttons.
                 self.draw_colony()
-                start_button.draw_button(self.screen)
-                restart_button.draw_button(self.screen)
 
                 # Determine the cell under the cursor.
                 mouse_pos = pg.mouse.get_pos()
@@ -75,42 +99,28 @@ class Game:
                 mouse_clicked = pg.mouse.get_pressed()
                 left_clicked = mouse_clicked[0]
 
-                if start_button.handle_cursor(mouse_pos):
-                    in_gui = False
-                    in_game = True
-                    self.selected_cell.kill_cell()
-
                 if left_clicked:
                     self.selected_cell.resurect_cell()
-
-                pg.display.flip()
 
 
             elif in_game:
                 self.draw_colony()
-                start_button.draw_button(self.screen)
-                restart_button.draw_button(self.screen)
 
                 mouse_pos = pg.mouse.get_pos()
                 mouse_clicked = pg.mouse.get_pressed()
-
-                if restart_button.handle_cursor(mouse_pos):
-                    self.colony.wipe_colony()
-                    in_gui = True
-                    in_game = False
-
-
-                pg.display.flip()
 
                 self.plot.update_cell_count_list(self.colony)
                 self.colony.bit_map_determine_fate()
                 self.colony.kill_and_resurect_cells()
 
+            self.manager.draw_ui(self.screen)
+            pg.display.flip()
 
             self.clock.tick(self.frame_rate)
+            
         pg.quit()
         self.plot.save_plot()
 
 
-game_of_life = Game((1280, 720), 30)
+game_of_life = Game((SCREEN_WIDTH, SCREEN_HEIGHT), 30)
 game_of_life.main()
