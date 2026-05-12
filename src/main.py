@@ -4,7 +4,6 @@ import pygame as pg
 import pygame_gui
 import colony
 import plotter
-import button
 
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1088
